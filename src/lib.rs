@@ -1,7 +1,13 @@
 use std::io::{Read, Seek};
 use thiserror::Error;
 
-mod default;
+cfg_if::cfg_if! {
+    if #[cfg(unix)]{
+        mod unix;
+    } else {
+        mod default;
+    }
+}
 #[derive(Error, Debug)]
 pub enum ScanError {
     #[error("IO Error occured")]
