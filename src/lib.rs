@@ -1,6 +1,7 @@
 use std::io::{Read, Seek};
 use thiserror::Error;
 
+mod default;
 #[derive(Error, Debug)]
 pub enum ScanError {
     #[error("IO Error occured")]
