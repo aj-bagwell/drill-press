@@ -1,0 +1,13 @@
+[package]
+name = "hole-punch"
+description = "A WIP cross platform library for extracting information about holes in sparse files."
+repository = "https://gitlab.com/asuran-rs/hole-punch"
+license = "MIT OR Apache-2.0"
+version = "0.0.0"
+authors = ["Nathan McCarty <nathan@mccarty.io>"]
+edition = "2018"
+readme = "README.md"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
