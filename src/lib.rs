@@ -71,6 +71,10 @@ pub trait SparseFile: Read + Seek {
     /// Will return `Err(ScanError::UnsupportedPlatform)` if support is not
     /// implemented for filesystem level hole finding on your system
     ///
+    /// Will return `Err(ScanError::UnsupportedFileSystem)` if support is
+    /// implemented for your operating system, but the filesystem does not
+    /// support sparse files
+    ///
     /// Will also return `Err` if any other I/O error occurs
     fn scan_chunks(&mut self) -> Result<Vec<Segment>, ScanError>;
 }
