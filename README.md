@@ -1,5 +1,10 @@
 Hole-Punch
 ==========
+![Crates.io](https://img.shields.io/crates/v/hole-punch?style=flat-square&logo=rust)
+![License](https://img.shields.io/crates/l/hole-punch?style=flat-square)
+![Unsafe](https://img.shields.io/badge/unsafe-very%20yes-important?style=flat-square)
+![Maintenance](https://img.shields.io/maintenance/yes/2020?style=flat-square)
+
 
 A (wip) dead simple, cross platform crate for finding the locations of holes in
 sparse files.
