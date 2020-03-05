@@ -72,7 +72,7 @@ pub trait SparseFile: Read + Seek {
     /// The ranges generated are guaranteed to cover all bytes in the file, up
     /// to the last non-zero byte in the last segment containing data. All files
     /// are considered to have a single hole of indeterminate length at the end,
-    /// and this library will not included that hole.
+    /// and this library may not included that hole.
     ///
     /// `Hole` segments are guaranteed to represent a part of a file that does
     /// not contain any non-zero data, however, `Data` segments may represent
