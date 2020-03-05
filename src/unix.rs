@@ -53,9 +53,19 @@ impl SparseFile for File {
                 }
             }
         }
-        // If holes is empty, the file is empty, go ahead and return our empty vector
+        // If holes is empty, the file is empty, check to see if the file is empty, and if
+        // it is, return a empty vector. Otherwise, return just a data chunk
         if holes.is_empty() {
-            Ok(holes)
+            if end <= 0 {
+                Ok(holes)
+            } else {
+                Ok(vec![Segment {
+                    segment_type: SegmentType::Data,
+                    start: 0,
+                    // This cast is valid, as we would have thrown an Err if end was negative
+                    end: end as u64,
+                }])
+            }
         } else {
             let mut output = Vec::new();
             // figure out if the first segement is a hole
