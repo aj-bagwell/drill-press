@@ -78,3 +78,82 @@ pub trait SparseFile: Read + Seek {
     /// Will also return `Err` if any other I/O error occurs
     fn scan_chunks(&mut self) -> Result<Vec<Segment>, ScanError>;
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::test_utils::*;
+    use quickcheck_macros::quickcheck;
+
+    fn test_covers_all_bytes(desc: SparseDescription) -> bool {
+        let mut file = desc.to_file();
+        // Get both sets of segments
+        let input_segments = desc.segments();
+        let output_segments = file.scan_chunks().expect("Unable to scan chunks");
+        println!("Ouput: \n {:?} \n", output_segments);
+        // Find the last non-zero byte in the input segments
+        let last_non_zero = input_segments
+            .iter()
+            .map(|x| {
+                if let SegmentType::Data = x.segment_type {
+                    x.end
+                } else {
+                    0
+                }
+            })
+            .max()
+            .unwrap_or(0);
+        println!("Last non zero: {} \n", last_non_zero);
+        let mut last_byte_touched = false;
+        for (x, y) in output_segments.iter().zip(output_segments.iter().skip(1)) {
+            if y.start != x.end + 1 {
+                return false;
+            }
+            if y.end >= last_non_zero {
+                println!("Last byte touched!");
+                last_byte_touched = true;
+            }
+        }
+        if output_segments.len() == 1 {
+            if output_segments[0].end >= last_non_zero {
+                println!("Last byte touched!");
+                last_byte_touched = true;
+            }
+        }
+        last_byte_touched || last_non_zero == 0
+    }
+
+    #[quickcheck]
+    fn covers_all_bytes(desc: SparseDescription) -> bool {
+        test_covers_all_bytes(desc)
+    }
+
+    #[test]
+    fn covers_all_bytes_failure_1() {
+        let desc = SparseDescription::from_segments(vec![
+            Segment {
+                segment_type: SegmentType::Hole,
+                start: 0,
+                end: 3545867,
+            },
+            Segment {
+                segment_type: SegmentType::Data,
+                start: 3545868,
+                end: 3625675,
+            },
+        ]);
+
+        assert!(test_covers_all_bytes(desc));
+    }
+
+    #[test]
+    fn covers_all_bytes_failure_2() {
+        let desc = SparseDescription::from_segments(vec![Segment {
+            segment_type: SegmentType::Hole,
+            start: 0,
+            end: 5440262,
+        }]);
+
+        assert!(test_covers_all_bytes(desc));
+    }
+}

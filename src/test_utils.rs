@@ -24,8 +24,18 @@ impl Tag {
         }
     }
 }
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct SparseDescription(Vec<Segment>);
+
+impl SparseDescription {
+    pub fn segments(self) -> Vec<Segment> {
+        self.0
+    }
+
+    pub fn from_segments(v: Vec<Segment>) -> Self {
+        SparseDescription(v)
+    }
+}
 
 impl SparseDescription {
     pub fn to_file(&self) -> File {
