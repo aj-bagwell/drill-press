@@ -6,109 +6,180 @@ use std::fs::File;
 use std::io::Error;
 use std::os::unix::io::AsRawFd;
 
-use libc::{lseek, SEEK_DATA, SEEK_END, SEEK_HOLE, SEEK_SET};
+use libc::{__errno_location, c_int, lseek, off_t, EINVAL, ENXIO, SEEK_DATA, SEEK_END, SEEK_HOLE};
+
+#[derive(Clone, Copy)]
+enum Tag {
+    Data(i64),
+    Hole(i64),
+    End(i64),
+}
+
+impl Tag {
+    fn offset(&self) -> i64 {
+        match self {
+            Tag::Data(x) | Tag::Hole(x) | Tag::End(x) => *x,
+        }
+    }
+}
 
 impl SparseFile for File {
     fn scan_chunks(&mut self) -> std::result::Result<std::vec::Vec<Segment>, ScanError> {
         // Create our output vec
-        let mut holes: Vec<Segment> = Vec::new();
+        let mut tags: Vec<Tag> = Vec::new();
         // Extract the raw fd from the file
         let fd = self.as_raw_fd();
-        let end;
-        unsafe {
-            // use lseek to find the end of the file
-            end = lseek(fd, 0, SEEK_END);
-            if end < 0 {
-                return Err(ScanError::from(Error::last_os_error()));
-            }
-            // use lseek to reset the cursor to the start of the file
-            let offset = lseek(fd, 0, SEEK_SET);
-            if offset < 0 {
-                return Err(ScanError::from(Error::last_os_error()));
-            }
-            // Find the first hole
-            let mut last_hole_start = lseek(fd, 0, SEEK_HOLE);
-            if last_hole_start < 0 {
-                return Err(ScanError::from(Error::last_os_error()));
-            }
-            // Go through the file and create the holes list
-            while last_hole_start < end {
-                // Find the next data segement
-                let next_data_start = lseek(fd, last_hole_start + 1, SEEK_DATA);
-                if next_data_start < 0 {
-                    // If we are here, we can reasonably assume we have access
-                    // to the file, as we have completed several writes. For
-                    // now, we will just assume we have run out of data
-                    // segements and return.
-                    // FIXME: Stop assuming and actually check errno
-                    holes.push(Segment {
-                        segment_type: SegmentType::Hole,
-                        start: last_hole_start as u64,
-                        end: end as u64,
-                    });
-                    break;
-                }
-                // Describe the hole
-                holes.push(Segment {
-                    segment_type: SegmentType::Hole,
-                    // We can safely do these casts since we verified the values
-                    // are non-negative
-                    start: last_hole_start as u64,
-                    end: next_data_start as u64 - 1,
-                });
-                // find the next hole
-                last_hole_start = lseek(fd, next_data_start + 1, SEEK_HOLE);
-                if last_hole_start < 0 {
-                    return Err(ScanError::from(Error::last_os_error()));
-                }
-            }
-        }
-        // If holes is empty, the file is empty, check to see if the file is empty, and if
-        // it is, return a empty vector. Otherwise, return just a data chunk
-        if holes.is_empty() {
-            if end <= 0 {
-                Ok(holes)
+        // Our seeking loop assumes that we know what type the previous segement
+        // is, so we check for the case where there is a hole at the start of
+        // the file. This also does double duty checking for sparesness, as if
+        // there are no holes, find_next_hole will return None, and we can short
+        // circit.
+        if let Some(first_hole) = find_next_hole(fd, 0)? {
+            let mut last_offset;
+            if first_hole == 0 {
+                last_offset = Tag::Hole(0);
             } else {
-                Ok(vec![Segment {
-                    segment_type: SegmentType::Data,
-                    start: 0,
-                    // This cast is valid, as we would have thrown an Err if end was negative
-                    end: end as u64,
-                }])
+                last_offset = Tag::Data(0);
+            }
+            let end = find_end(fd)?;
+            while last_offset.offset() < end {
+                tags.push(last_offset);
+                match last_offset {
+                    Tag::Data(x) => {
+                        // If the last tag was a data, we are looking for a hole
+                        if let Some(next_offset) = find_next_hole(fd, x + 1)? {
+                            last_offset = Tag::Hole(next_offset);
+                        } else {
+                            // We know the last segement was a data, and there
+                            // are no remaining holes, so we must be at the end
+                            // of the file, so we end the loop and push an end
+                            last_offset = Tag::End(end);
+                            tags.push(last_offset);
+                        }
+                    }
+                    Tag::Hole(x) => {
+                        // If the last tag was a hole, we are looking for a data
+                        if let Some(next_offset) = find_next_data(fd, x + 1)? {
+                            last_offset = Tag::Data(next_offset);
+                        } else {
+                            // We know the last segment was a hole, and there
+                            // are no remaining holes, so we must be at the end
+                            // of the file, so we end the loop and push an end
+                            last_offset = Tag::End(end);
+                            tags.push(last_offset);
+                        }
+                    }
+                    // We never set last_offset to Tag::End until we are done
+                    // with the loop, so if we encounter an End, we have made a
+                    // major programming error
+                    Tag::End(_) => unreachable!(),
+                }
             }
         } else {
-            let mut output = Vec::new();
-            // figure out if the first segement is a hole
-            // Insert a data segment if it isnt
-            let mut last_end = 0;
-            if holes[0].start != 0 {
-                output.push(Segment {
-                    segment_type: SegmentType::Data,
-                    start: 0,
-                    end: holes[0].start - 1,
-                });
-                last_end = holes[0].end - 1;
-            }
-            for hole in holes {
-                // Figure out if there is a data segement in between this hole and the last
-                if last_end == 0 || hole.start > last_end + 1 {
-                    output.push(Segment {
+            // In this situation, we have no holes in the data, so we just
+            // represent a single data segement
+            tags.push(Tag::Data(0));
+            let end = find_end(fd)?;
+            tags.push(Tag::End(end));
+        }
+
+        /// Process our list of start point tags into a list of segments.
+        let tag_pairs = tags
+            .iter()
+            .copied()
+            .zip(tags.iter().skip(1).copied())
+            .map(|(x, y)| {
+                // All these casts are valid, as the wrapper methods we use
+                // around lseek will return Err rather than returning a value
+                // less than 0
+                match x {
+                    Tag::Data(start) => Segment {
                         segment_type: SegmentType::Data,
-                        start: last_end + 1,
-                        end: hole.start - 1,
-                    });
+                        start: start as u64,
+                        end: (y.offset() - 1) as u64,
+                    },
+                    Tag::Hole(start) => Segment {
+                        segment_type: SegmentType::Hole,
+                        start: start as u64,
+                        end: (y.offset() - 1) as u64,
+                    },
+                    // End should only ever be the last element the tag vector,
+                    // so it can never be the first element of a pair
+                    Tag::End(_) => unreachable!(),
                 }
-                output.push(hole)
+            })
+            .collect();
+        Ok(tag_pairs)
+    }
+}
+
+fn find_next_hole(fd: c_int, offset: off_t) -> Result<Option<off_t>, ScanError> {
+    unsafe {
+        // First, call lseek with our file descriptor and current offset
+        let new_offset = lseek(fd, offset, SEEK_HOLE);
+        // if the return value of lseek is less than 0, an error has occured
+        if new_offset < 0 {
+            // find and deref errno, honestly the scariest thing we do here
+            let errno = *__errno_location();
+            // Some of the errors we might not get here need to be handled
+            // specially, and one of them isn' actually an error
+            match errno {
+                /// EINVAL incidicates that the file system does not support
+                /// SEEK_HOLE or SEEK_DATA, so we indicate as such
+                EINVAL => Err(ScanError::UnsupportedFileSystem),
+                // ENXIO indicates that the the file offset we are looking for
+                // either doesn't exist, or would be beyond the end of the file.
+                // In our case, this just means there is no next segement, so we
+                // return Ok(none) to indicate as such.
+                ENXIO => Ok(None),
+                // None of the other error codes require special handling, so we
+                // just turn them into an std::io::Error for user friendliness
+                _ => Err(Error::last_os_error().into()),
             }
-            // Figure out if there is a data segement at the end that needs to be added
-            if (output[output.len() - 1].end as i64) < end {
-                output.push(Segment {
-                    segment_type: SegmentType::Data,
-                    start: output[output.len() - 1].end + 1,
-                    end: end as u64,
-                });
+        } else {
+            // If no errors occured, we are good to return our offset.
+            Ok(Some(new_offset))
+        }
+    }
+}
+
+fn find_next_data(fd: c_int, offset: off_t) -> Result<Option<off_t>, ScanError> {
+    unsafe {
+        // First, call lseek with our file descriptor and current offset
+        let new_offset = lseek(fd, offset, SEEK_DATA);
+        // if the return value of lseek is less than 0, an error has occured
+        if new_offset < 0 {
+            // find and deref errno, honestly the scariest thing we do here
+            let errno = *__errno_location();
+            // Some of the errors we might not get here need to be handled
+            // specially, and one of them isn' actually an error
+            match errno {
+                /// EINVAL incidicates that the file system does not support
+                /// SEEK_HOLE or SEEK_DATA, so we indicate as such
+                EINVAL => Err(ScanError::UnsupportedFileSystem),
+                // ENXIO indicates that the the file offset we are looking for
+                // either doesn't exist, or would be beyond the end of the file.
+                // In our case, this just means there is no next segement, so we
+                // return Ok(none) to indicate as such.
+                ENXIO => Ok(None),
+                // None of the other error codes require special handling, so we
+                // just turn them into an std::io::Error for user friendliness
+                _ => Err(Error::last_os_error().into()),
             }
-            Ok(output)
+        } else {
+            // If no errors occured, we are good to return our offset.
+            Ok(Some(new_offset))
+        }
+    }
+}
+
+fn find_end(fd: c_int) -> Result<off_t, ScanError> {
+    unsafe {
+        let new_offset = lseek(fd, 0, SEEK_END);
+        if new_offset < 0 {
+            Err(Error::last_os_error().into())
+        } else {
+            Ok(new_offset)
         }
     }
 }
