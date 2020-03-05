@@ -45,6 +45,24 @@ pub struct Segment {
     pub end: u64,
 }
 
+impl Segment {
+    /// Returns true if the provided offset is within the range of bytes this
+    /// segment specifies
+    pub fn contains(&self, offset: u64) -> bool {
+        offset >= self.start && offset <= self.end
+    }
+
+    /// Returns true if this segment is a Hole
+    pub fn is_hole(&self) -> bool {
+        self.segment_type == SegmentType::Hole
+    }
+
+    /// Returns true if this segment contains data
+    pub fn is_data(&self) -> bool {
+        self.segment_type == SegmentType::Data
+    }
+}
+
 /// Trait for objects that can have sparisty
 pub trait SparseFile: Read + Seek {
     /// Scans the file to find its logical chunks
