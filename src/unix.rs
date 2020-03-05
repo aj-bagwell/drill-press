@@ -36,7 +36,17 @@ impl SparseFile for File {
                 // Find the next data segement
                 let next_data_start = lseek(fd, last_hole_start + 1, SEEK_DATA);
                 if next_data_start < 0 {
-                    return Err(ScanError::from(Error::last_os_error()));
+                    // If we are here, we can reasonably assume we have access
+                    // to the file, as we have completed several writes. For
+                    // now, we will just assume we have run out of data
+                    // segements and return.
+                    // FIXME: Stop assuming and actually check errno
+                    holes.push(Segment {
+                        segment_type: SegmentType::Hole,
+                        start: last_hole_start as u64,
+                        end: end as u64,
+                    });
+                    break;
                 }
                 // Describe the hole
                 holes.push(Segment {
@@ -75,7 +85,7 @@ impl SparseFile for File {
                 output.push(Segment {
                     segment_type: SegmentType::Data,
                     start: 0,
-                    end: holes[0].end - 1,
+                    end: holes[0].start - 1,
                 });
                 last_end = holes[0].end - 1;
             }
@@ -89,6 +99,14 @@ impl SparseFile for File {
                     });
                 }
                 output.push(hole)
+            }
+            // Figure out if there is a data segement at the end that needs to be added
+            if (output[output.len() - 1].end as i64) < end {
+                output.push(Segment {
+                    segment_type: SegmentType::Data,
+                    start: output[output.len() - 1].end + 1,
+                    end: end as u64,
+                });
             }
             Ok(output)
         }
