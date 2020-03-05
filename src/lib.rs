@@ -12,6 +12,10 @@ cfg_if::cfg_if! {
         mod default;
     }
 }
+
+#[cfg(test)]
+mod test_utils;
+
 #[derive(Error, Debug)]
 pub enum ScanError {
     #[error("IO Error occured")]
