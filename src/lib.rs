@@ -103,6 +103,8 @@ mod tests {
     use crate::test_utils::*;
     use quickcheck_macros::quickcheck;
 
+    // Creates a file based on desc, then tests that the resulting output of
+    // file.scan_chunks() has every non-zero byte included
     fn test_covers_all_bytes(desc: SparseDescription) -> bool {
         let mut file = desc.to_file();
         // Get both sets of segments
@@ -144,6 +146,33 @@ mod tests {
     #[quickcheck]
     fn covers_all_bytes(desc: SparseDescription) -> bool {
         test_covers_all_bytes(desc)
+    }
+
+    // Constructs a file with desc, then verifies that the holes in the output
+    // from file.scan_chunks() don't contain any data
+    fn test_holes_have_no_data(desc: SparseDescription) -> bool {
+        let mut file = desc.to_file();
+        // Get both sets of segments
+        let input_segments = desc.segments();
+        let output_segments = file.scan_chunks().expect("Unable to scan chunks");
+        println!("Output: \n {:?} \n", output_segments);
+        for segment in output_segments.into_iter().filter(|x| x.is_hole()) {
+            if input_segments.iter().filter(|x| x.is_data()).any(|other| {
+                if segment.start > other.start {
+                    !(segment.start > other.end)
+                } else {
+                    !(segment.end < other.start)
+                }
+            }) {
+                return false;
+            }
+        }
+        true
+    }
+
+    #[quickcheck]
+    fn holes_have_no_data(desc: SparseDescription) -> bool {
+        test_holes_have_no_data(desc)
     }
 
     #[test]
