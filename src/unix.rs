@@ -1,5 +1,5 @@
-//! lseek based implemenation that uses `SEEK_DATA` and `SEEK_HOLE` to
-//! reconstruct which segements of the file are data or holes
+//! lseek based implementation that uses `SEEK_DATA` and `SEEK_HOLE` to
+//! reconstruct which segments of the file are data or holes
 use super::*;
 
 use std::fs::File;
@@ -31,11 +31,11 @@ impl SparseFile for File {
         let fd = self.as_raw_fd();
         // Find the end
         let end = find_end(fd)?;
-        // Our seeking loop assumes that we know what type the previous segement
+        // Our seeking loop assumes that we know what type the previous segment
         // is, so we check for the case where there is a hole at the start of
-        // the file. This also does double duty checking for sparesness, as if
+        // the file. This also does double duty checking for sparseness, as if
         // there are no holes, find_next_hole will return None, and we can short
-        // circit.
+        // circuit.
         if let Some(first_hole) = find_next_hole(fd, 0)? {
             let mut last_offset;
             if first_hole == 0 {
@@ -51,7 +51,7 @@ impl SparseFile for File {
                         if let Some(next_offset) = find_next_hole(fd, x + 1)? {
                             last_offset = Tag::Hole(next_offset);
                         } else {
-                            // We know the last segement was a data, and there
+                            // We know the last segment was a data, and there
                             // are no remaining holes, so we must be at the end
                             // of the file, so we end the loop and push an end
                             last_offset = Tag::End(end);
@@ -77,7 +77,7 @@ impl SparseFile for File {
             tags.push(Tag::End(end));
         } else {
             // In this situation, we have no holes in the data, so we just
-            // represent a single data segement
+            // represent a single data segment
             tags.push(Tag::Data(0));
             let end = find_end(fd)?;
             tags.push(Tag::End(end));
@@ -122,19 +122,19 @@ fn find_next_hole(fd: c_int, offset: off_t) -> Result<Option<off_t>, ScanError> 
     unsafe {
         // First, call lseek with our file descriptor and current offset
         let new_offset = lseek(fd, offset, SEEK_HOLE);
-        // if the return value of lseek is less than 0, an error has occured
+        // if the return value of lseek is less than 0, an error has occurred
         if new_offset < 0 {
             // find and deref errno, honestly the scariest thing we do here
             let errno = *__errno_location();
             // Some of the errors we might not get here need to be handled
             // specially, and one of them isn' actually an error
             match errno {
-                /// EINVAL incidicates that the file system does not support
+                /// EINVAL indicates that the file system does not support
                 /// SEEK_HOLE or SEEK_DATA, so we indicate as such
                 EINVAL => Err(ScanError::UnsupportedFileSystem),
                 // ENXIO indicates that the the file offset we are looking for
                 // either doesn't exist, or would be beyond the end of the file.
-                // In our case, this just means there is no next segement, so we
+                // In our case, this just means there is no next segment, so we
                 // return Ok(none) to indicate as such.
                 ENXIO => Ok(None),
                 // None of the other error codes require special handling, so we
@@ -142,7 +142,7 @@ fn find_next_hole(fd: c_int, offset: off_t) -> Result<Option<off_t>, ScanError> 
                 _ => Err(Error::last_os_error().into()),
             }
         } else {
-            // If no errors occured, we are good to return our offset.
+            // If no errors occurred, we are good to return our offset.
             Ok(Some(new_offset))
         }
     }
@@ -152,19 +152,19 @@ fn find_next_data(fd: c_int, offset: off_t) -> Result<Option<off_t>, ScanError> 
     unsafe {
         // First, call lseek with our file descriptor and current offset
         let new_offset = lseek(fd, offset, SEEK_DATA);
-        // if the return value of lseek is less than 0, an error has occured
+        // if the return value of lseek is less than 0, an error has occurred
         if new_offset < 0 {
             // find and deref errno, honestly the scariest thing we do here
             let errno = *__errno_location();
             // Some of the errors we might not get here need to be handled
             // specially, and one of them isn' actually an error
             match errno {
-                /// EINVAL incidicates that the file system does not support
+                /// EINVAL indicates that the file system does not support
                 /// SEEK_HOLE or SEEK_DATA, so we indicate as such
                 EINVAL => Err(ScanError::UnsupportedFileSystem),
                 // ENXIO indicates that the the file offset we are looking for
                 // either doesn't exist, or would be beyond the end of the file.
-                // In our case, this just means there is no next segement, so we
+                // In our case, this just means there is no next segment, so we
                 // return Ok(none) to indicate as such.
                 ENXIO => Ok(None),
                 // None of the other error codes require special handling, so we
@@ -172,7 +172,7 @@ fn find_next_data(fd: c_int, offset: off_t) -> Result<Option<off_t>, ScanError> 
                 _ => Err(Error::last_os_error().into()),
             }
         } else {
-            // If no errors occured, we are good to return our offset.
+            // If no errors occurred, we are good to return our offset.
             Ok(Some(new_offset))
         }
     }

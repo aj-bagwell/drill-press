@@ -83,7 +83,7 @@ impl Arbitrary for SparseDescription {
             tags.push(Tag::Data(0));
         }
         tags.push(Tag::End(length));
-        // elminate duplicates.
+        // eliminate duplicates.
         let set = tags.drain(..).collect::<HashSet<_>>();
         tags.extend(set.into_iter());
         // Sort the tags

@@ -16,8 +16,8 @@ use hole_punch::*;
 
 let mut file = File::open("a big sparse file");
 let segments = file.scan_chunks().expect("Unable to scan chunks");
-for segment in segement {
-    if let SegementType::Data = segment.segment_type {
+for segment in segment {
+    if let SegmentType::Data = segment.segment_type {
         let start = segment.start;
         let end = segment.end;
 
@@ -30,7 +30,7 @@ for segment in segement {
 License
 -------
 
-Hole-Punch is distrubited under your choice of the MIT license, or Apache
+Hole-Punch is distributed under your choice of the MIT license, or Apache
 Version 2.0.
 
 TO-DOs
