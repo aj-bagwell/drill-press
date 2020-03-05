@@ -8,7 +8,7 @@ use std::os::unix::io::AsRawFd;
 
 use libc::{__errno_location, c_int, lseek, off_t, EINVAL, ENXIO, SEEK_DATA, SEEK_END, SEEK_HOLE};
 
-#[derive(Clone, Copy)]
+#[derive(Debug, Clone, Copy)]
 enum Tag {
     Data(i64),
     Hole(i64),
@@ -29,6 +29,8 @@ impl SparseFile for File {
         let mut tags: Vec<Tag> = Vec::new();
         // Extract the raw fd from the file
         let fd = self.as_raw_fd();
+        // Find the end
+        let end = find_end(fd)?;
         // Our seeking loop assumes that we know what type the previous segement
         // is, so we check for the case where there is a hole at the start of
         // the file. This also does double duty checking for sparesness, as if
@@ -41,7 +43,6 @@ impl SparseFile for File {
             } else {
                 last_offset = Tag::Data(0);
             }
-            let end = find_end(fd)?;
             while last_offset.offset() < end {
                 tags.push(last_offset);
                 match last_offset {
@@ -54,7 +55,6 @@ impl SparseFile for File {
                             // are no remaining holes, so we must be at the end
                             // of the file, so we end the loop and push an end
                             last_offset = Tag::End(end);
-                            tags.push(last_offset);
                         }
                     }
                     Tag::Hole(x) => {
@@ -66,7 +66,6 @@ impl SparseFile for File {
                             // are no remaining holes, so we must be at the end
                             // of the file, so we end the loop and push an end
                             last_offset = Tag::End(end);
-                            tags.push(last_offset);
                         }
                     }
                     // We never set last_offset to Tag::End until we are done
@@ -75,6 +74,7 @@ impl SparseFile for File {
                     Tag::End(_) => unreachable!(),
                 }
             }
+            tags.push(Tag::End(end));
         } else {
             // In this situation, we have no holes in the data, so we just
             // represent a single data segement
@@ -83,8 +83,10 @@ impl SparseFile for File {
             tags.push(Tag::End(end));
         }
 
+        println!("{:?}", tags);
+
         // Process our list of start point tags into a list of segments.
-        let tag_pairs = tags
+        let mut tag_pairs = tags
             .iter()
             .copied()
             .zip(tags.iter().skip(1).copied())
@@ -108,7 +110,10 @@ impl SparseFile for File {
                     Tag::End(_) => unreachable!(),
                 }
             })
-            .collect();
+            .collect::<Vec<_>>();
+        // Modify the last element so it actually ends on the final offset
+        let len = tag_pairs.len();
+        tag_pairs[len - 1].end = end as u64;
         Ok(tag_pairs)
     }
 }
