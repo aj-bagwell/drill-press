@@ -20,6 +20,8 @@ pub enum ScanError {
     Raw(i32),
     #[error("The operation you are trying to perform is not supported on this platform")]
     UnsupportedPlatform,
+    #[error("The filesystem does not support operating on sparse files")]
+    UnsupportedFileSystem,
 }
 
 /// Flag for determining if a segment is a hole, or if it contains data
