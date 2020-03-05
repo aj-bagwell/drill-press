@@ -23,7 +23,7 @@ pub enum ScanError {
 }
 
 /// Flag for determining if a segment is a hole, or if it contains data
-#[derive(Copy, Clone, PartialEq, Eq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum SegmentType {
     Hole,
     Data,
@@ -31,7 +31,7 @@ pub enum SegmentType {
 
 /// Describes the location of a chunk in the file, as well as indicating if it
 /// contains data or is a hole
-#[derive(Copy, Clone, PartialEq, Eq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub struct Segment {
     /// Marks this segment as either contianing a hole, or containing data
     pub segment_type: SegmentType,
