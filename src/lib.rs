@@ -1,3 +1,7 @@
+/*!
+Utility methods for locating holes in sparse files
+*/
+
 use std::io::{Read, Seek};
 use thiserror::Error;
 
