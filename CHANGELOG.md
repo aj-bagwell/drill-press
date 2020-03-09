@@ -10,10 +10,15 @@
 *   Add winapi dependecny on windows ([36b1948f](36b1948f))
 *   Add utility functions to Segment type ([4a2a50fe](4a2a50fe))
 
+#### Other Changes
+
+*   Set test files as sparse on windows ([bc905ddd](bc905ddd))
+*   Add quickcheck for "holes have no data" ([ceb63e6d](ceb63e6d))
+
 
 
 <a name="0.0.1"></a>
-## 0.0.1 (2020-03-09)
+## 0.0.1 (2020-03-05)
 
 
 #### Bug Fixes
@@ -21,6 +26,13 @@
 *   Fix bugs that cropped up with quicktest ([48925620](48925620))
 *   Unix Backend no longer ingores data at the end ([f5de2f8b](f5de2f8b))
 *   Add extra saftey to unix SparseFile impl ([e13303cb](e13303cb))
+
+#### Other Changes
+
+*   Implement quickcheck for covers all bytes property ([e27b4f13](e27b4f13))
+*   Implement framework for using quickcheck ([9186bea2](9186bea2))
+*   Rewrite unix implementation ([ec618837](ec618837))
+*   Add testing dependencies ([abe3bc4d](abe3bc4d))
 
 #### Features
 
