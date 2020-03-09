@@ -111,7 +111,10 @@ mod tests {
         let mut file = desc.to_file();
         // Get both sets of segments
         let input_segments = desc.segments();
-        let output_segments = file.scan_chunks().expect("Unable to scan chunks");
+        let output_segments = file
+            .as_file_mut()
+            .scan_chunks()
+            .expect("Unable to scan chunks");
         println!("Output: \n {:?} \n", output_segments);
         // Find the last non-zero byte in the input segments
         let last_non_zero = input_segments
@@ -156,7 +159,10 @@ mod tests {
         let mut file = desc.to_file();
         // Get both sets of segments
         let input_segments = desc.segments();
-        let output_segments = file.scan_chunks().expect("Unable to scan chunks");
+        let output_segments = file
+            .as_file_mut()
+            .scan_chunks()
+            .expect("Unable to scan chunks");
         println!("Output: \n {:?} \n", output_segments);
         for segment in output_segments.into_iter().filter(|x| x.is_hole()) {
             if input_segments.iter().filter(|x| x.is_data()).any(|other| {

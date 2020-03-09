@@ -1,15 +1,14 @@
 use super::*;
 
-use std::fs::File;
 use std::io::{Seek, SeekFrom, Write};
-use tempfile::tempfile;
+use tempfile::NamedTempFile;
 
 use quickcheck::{Arbitrary, Gen};
 use rand::Rng;
 use std::collections::HashSet;
 
 const MAX_LENGTH: u64 = 10_000_000;
-const MAX_SPLITS: u64 = 10;
+const MAX_SPLITS: u64 = 50;
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
 enum Tag {
@@ -38,9 +37,24 @@ impl SparseDescription {
 }
 
 impl SparseDescription {
-    pub fn to_file(&self) -> File {
+    pub fn to_file(&self) -> NamedTempFile {
+        let mut temp = NamedTempFile::new().expect("Unable to create tempfile");
         // First, make our file
-        let mut file = tempfile().expect("Unable to create temp file");
+        // Also, squelch the unused warning on linux where we actually don't use this
+        #[allow(unused_variables)]
+        let path = temp.path().to_string_lossy().to_string();
+        let file = temp.as_file_mut();
+
+        // Special handling to enable sparsity on windows
+        #[cfg(windows)]
+        {
+            use std::process::Command;
+            Command::new("fsutil")
+                .args(&["sparse","setflag",&path])
+                .output()
+                .expect("Unable to set the sparse flag on the tempfile");
+        }
+
         // Iterate through the SparseDescription
         for segment in &self.0 {
             // Only proceed if this is a data segment
@@ -56,7 +70,7 @@ impl SparseDescription {
                     .expect("Unable to write bytes to file");
             }
         }
-        file
+        temp
     }
 }
 
