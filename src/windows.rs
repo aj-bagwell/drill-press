@@ -1,10 +1,7 @@
-#![allow(unused_imports)]
-#![allow(dead_code)]
-#![allow(unused_variables)]
 use super::*;
 
 use std::fs::File;
-use std::io::{Read, Seek, SeekFrom};
+use std::io::{Seek, SeekFrom};
 use std::os::windows::io::{AsRawHandle, RawHandle};
 
 use winapi::shared::minwindef::{DWORD, LPVOID};
