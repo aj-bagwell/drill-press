@@ -9,8 +9,14 @@ Hole-Punch
 A (wip) dead simple, cross platform crate for finding the locations of holes in
 sparse files.
 
-Currently only supports Unix, but Windows support is coming soon.
+Currently supports Unix-like platforms that support the `SEEK_HOLE` and
+`SEEK_DATA` commands on `lseek`, as well as windows.
 
+Windows support is not complete and is still being worked on, but should already
+be fine for most cases. 
+
+I do not currently have a Mac to test or develop MacOS support on, so no
+warranties or claims are currently made about MacOS.
 
 Usage
 -----
