@@ -50,7 +50,7 @@ impl SparseDescription {
         {
             use std::process::Command;
             Command::new("fsutil")
-                .args(&["sparse","setflag",&path])
+                .args(&["sparse", "setflag", &path])
                 .output()
                 .expect("Unable to set the sparse flag on the tempfile");
         }
