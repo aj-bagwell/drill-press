@@ -6,7 +6,10 @@ use std::io::{Read, Seek};
 use thiserror::Error;
 
 cfg_if::cfg_if! {
-    if #[cfg(unix)]{
+    if #[cfg(any(target_os = "linux",
+                 target_os = "android",
+                 target_os = "freebsd",
+    ))]{
         mod unix;
     } else if #[cfg(windows)] {
         mod windows;
