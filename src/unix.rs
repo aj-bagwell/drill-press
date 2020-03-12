@@ -6,8 +6,8 @@ use std::fs::File;
 use std::io::Error;
 use std::os::unix::io::AsRawFd;
 
-use libc::{c_int, lseek, off_t, EINVAL, ENXIO, SEEK_DATA, SEEK_END, SEEK_HOLE};
 use errno::errno;
+use libc::{c_int, lseek, off_t, EINVAL, ENXIO, SEEK_DATA, SEEK_END, SEEK_HOLE};
 
 #[derive(Debug, Clone, Copy)]
 enum Tag {
@@ -49,7 +49,7 @@ impl SparseFile for File {
                 match last_offset {
                     Tag::Data(x) => {
                         // If the last tag was a data, we are looking for a hole
-                        if let Some(next_offset) = find_next_hole(fd, x + 1)? {
+                        if let Some(next_offset) = find_next_hole(fd, x)? {
                             last_offset = Tag::Hole(next_offset);
                         } else {
                             // We know the last segment was a data, and there
@@ -60,7 +60,7 @@ impl SparseFile for File {
                     }
                     Tag::Hole(x) => {
                         // If the last tag was a hole, we are looking for a data
-                        if let Some(next_offset) = find_next_data(fd, x + 1)? {
+                        if let Some(next_offset) = find_next_data(fd, x)? {
                             last_offset = Tag::Data(next_offset);
                         } else {
                             // We know the last segment was a hole, and there

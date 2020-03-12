@@ -156,6 +156,7 @@ mod tests {
     // Constructs a file with desc, then verifies that the holes in the output
     // from file.scan_chunks() don't contain any data
     fn test_holes_have_no_data(desc: SparseDescription) -> bool {
+        println!("Input: \n {:?} \n", desc);
         let mut file = desc.to_file();
         // Get both sets of segments
         let input_segments = desc.segments();
@@ -164,13 +165,19 @@ mod tests {
             .scan_chunks()
             .expect("Unable to scan chunks");
         println!("Output: \n {:?} \n", output_segments);
-        for segment in output_segments.into_iter().filter(|x| x.is_hole()) {
+        for segment in output_segments.iter().filter(|x| x.is_hole()) {
             if input_segments.iter().filter(|x| x.is_data()).any(|other| {
-                if segment.start > other.start {
+                let x = if segment.start > other.start {
                     !(segment.start > other.end)
                 } else {
                     !(segment.end < other.start)
+                };
+
+                if x {
+                    println!("Output {:?} overlaps Input {:?}", segment, other);
                 }
+
+                x
             }) {
                 return false;
             }
@@ -210,5 +217,107 @@ mod tests {
         }]);
 
         assert!(test_covers_all_bytes(desc));
+    }
+
+    #[test]
+    fn holes_have_no_data_failure_1() {
+        let desc = SparseDescription::from_segments(vec![
+            Segment {
+                segment_type: SegmentType::Data,
+                start: 0,
+                end: 106392,
+            },
+            Segment {
+                segment_type: SegmentType::Hole,
+                start: 106393,
+                end: 713195,
+            },
+            Segment {
+                segment_type: SegmentType::Data,
+                start: 713196,
+                end: 1164291,
+            },
+            Segment {
+                segment_type: SegmentType::Hole,
+                start: 1164292,
+                end: 1871333,
+            },
+            Segment {
+                segment_type: SegmentType::Data,
+                start: 1871334,
+                end: 2351104,
+            },
+            Segment {
+                segment_type: SegmentType::Hole,
+                start: 2351105,
+                end: 2478705,
+            },
+            Segment {
+                segment_type: SegmentType::Data,
+                start: 2478706,
+                end: 2568019,
+            },
+            Segment {
+                segment_type: SegmentType::Hole,
+                start: 2568020,
+                end: 3062343,
+            },
+            Segment {
+                segment_type: SegmentType::Data,
+                start: 3062344,
+                end: 3285810,
+            },
+            Segment {
+                segment_type: SegmentType::Hole,
+                start: 3285811,
+                end: 3793122,
+            },
+            Segment {
+                segment_type: SegmentType::Data,
+                start: 3793123,
+                end: 4166168,
+            },
+            Segment {
+                segment_type: SegmentType::Hole,
+                start: 4166169,
+                end: 4249362,
+            },
+            Segment {
+                segment_type: SegmentType::Data,
+                start: 4249363,
+                end: 4283128,
+            },
+            Segment {
+                segment_type: SegmentType::Hole,
+                start: 4283129,
+                end: 4597394,
+            },
+            Segment {
+                segment_type: SegmentType::Data,
+                start: 4597395,
+                end: 5204961,
+            },
+            Segment {
+                segment_type: SegmentType::Hole,
+                start: 5204962,
+                end: 5270535,
+            },
+            Segment {
+                segment_type: SegmentType::Data,
+                start: 5270536,
+                end: 5274355,
+            },
+            Segment {
+                segment_type: SegmentType::Hole,
+                start: 5274356,
+                end: 5471034,
+            },
+            Segment {
+                segment_type: SegmentType::Data,
+                start: 5471035,
+                end: 5547210,
+            },
+        ]);
+        assert!(test_holes_have_no_data(desc));
     }
 }

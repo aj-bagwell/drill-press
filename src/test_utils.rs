@@ -62,7 +62,7 @@ impl SparseDescription {
                 // Seek to the start of the segment
                 file.seek(SeekFrom::Start(segment.start))
                     .expect("Unable to seek in file");
-                let len = segment.end - segment.start;
+                let len = segment.end - segment.start + 1;
                 // Create a buffer of 1s to read from
                 let buffer = vec![1_u8; len as usize];
                 // write those ones to the file
