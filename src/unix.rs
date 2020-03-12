@@ -38,12 +38,11 @@ impl SparseFile for File {
         // there are no holes, find_next_hole will return None, and we can short
         // circuit.
         if let Some(first_hole) = find_next_hole(fd, 0)? {
-            let mut last_offset;
-            if first_hole == 0 {
-                last_offset = Tag::Hole(0);
+            let mut last_offset = if first_hole == 0 {
+                Tag::Hole(0)
             } else {
-                last_offset = Tag::Data(0);
-            }
+                Tag::Data(0)
+            };
             while last_offset.offset() < end {
                 tags.push(last_offset);
                 match last_offset {
@@ -80,8 +79,8 @@ impl SparseFile for File {
             // In this situation, we have no holes in the data, so we just
             // represent a single data segment
             tags.push(Tag::Data(0));
-            let end = find_end(fd)?;
-            tags.push(Tag::End(end));
+            let new_end = find_end(fd)?;
+            tags.push(Tag::End(new_end));
         }
 
         println!("{:?}", tags);
