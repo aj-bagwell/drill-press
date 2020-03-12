@@ -1,6 +1,9 @@
 /*!
 Utility methods for locating holes in sparse files
 */
+#![warn(clippy::all)]
+#![warn(clippy::pedantic)]
+#![allow(clippy::must_use_candidate)]
 
 use std::io::{Read, Seek};
 use thiserror::Error;
