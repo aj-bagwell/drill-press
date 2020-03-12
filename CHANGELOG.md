@@ -1,3 +1,18 @@
+<a name="0.0.3"></a>
+## 0.0.3 (2020-03-12)
+
+
+#### Other Changes
+
+*   Tests were creating sparse files incorrectly ([7192c4df](7192c4df))
+
+#### Bug Fixes
+
+*   Swtich from unix to whitelist of operating systems ([df90189b](df90189b))
+*   Change error handling to use errno crate ([5d41017c](5d41017c))
+
+
+
 <a name="0.0.2"></a>
 ## 0.0.2 (2020-03-09)
 
