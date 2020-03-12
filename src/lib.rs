@@ -4,6 +4,8 @@ Utility methods for locating holes in sparse files
 #![warn(clippy::all)]
 #![warn(clippy::pedantic)]
 #![allow(clippy::must_use_candidate)]
+// We are dealing with a lot of FFI in this crate, this one is a fact of life
+#![allow(clippy::cast_sign_loss)]
 
 use std::io::{Read, Seek};
 use thiserror::Error;
