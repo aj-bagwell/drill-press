@@ -6,7 +6,8 @@ use std::fs::File;
 use std::io::Error;
 use std::os::unix::io::AsRawFd;
 
-use libc::{__errno_location, c_int, lseek, off_t, EINVAL, ENXIO, SEEK_DATA, SEEK_END, SEEK_HOLE};
+use libc::{c_int, lseek, off_t, EINVAL, ENXIO, SEEK_DATA, SEEK_END, SEEK_HOLE};
+use errno::errno;
 
 #[derive(Debug, Clone, Copy)]
 enum Tag {
@@ -125,7 +126,7 @@ fn find_next_hole(fd: c_int, offset: off_t) -> Result<Option<off_t>, ScanError> 
         // if the return value of lseek is less than 0, an error has occurred
         if new_offset < 0 {
             // find and deref errno, honestly the scariest thing we do here
-            let errno = *__errno_location();
+            let errno = errno().into();
             // Some of the errors we might not get here need to be handled
             // specially, and one of them isn' actually an error
             match errno {
@@ -155,7 +156,7 @@ fn find_next_data(fd: c_int, offset: off_t) -> Result<Option<off_t>, ScanError> 
         // if the return value of lseek is less than 0, an error has occurred
         if new_offset < 0 {
             // find and deref errno, honestly the scariest thing we do here
-            let errno = *__errno_location();
+            let errno = errno().into();
             // Some of the errors we might not get here need to be handled
             // specially, and one of them isn' actually an error
             match errno {
