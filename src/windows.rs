@@ -32,7 +32,7 @@ impl SparseFile for File {
             // Call through and get the allocated ranges
             let ranges = get_allocated_ranges(handle, len)?;
             // the file isn't empty if we are here, so we should have at least one range
-            assert!(ranges.len() >= 1);
+            assert!(!ranges.is_empty());
             // Make a place to put our segments, and copy over our ranges
             let mut segments = ranges
                 .iter()
@@ -143,6 +143,9 @@ fn get_allocated_ranges(handle: RawHandle, size: u64) -> Result<Vec<Range>, Scan
     let mut ranges: Vec<Range> = Vec::new();
 
     // Iterate through the buffer and extract ranges
+    // This gets kinda hard to mentall parse if we do it the 'correct way'
+    // So we squelch that clippy warning here and here only
+    #[allow(clippy::needless_range_loop)]
     for i in 0..range_count {
         // Since we are only iterating up to the point DeviceIoControl returned, this unwrap is safe
         let range: FileAllocatedRange = unsafe { buffer[i].assume_init() };
