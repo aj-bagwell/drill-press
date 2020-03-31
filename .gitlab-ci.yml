@@ -1,0 +1,78 @@
+stages:
+  - format
+  - lint
+  - test
+  - build
+  - doc
+
+test:lint:rustfmt:
+  stage: format
+  image: "guangie88/rustfmt-clippy:stable"
+  script:
+    - cargo --version
+    - rustc --version
+    - cargo fmt --all -- --check
+  tags:
+    - linux
+  allow_failure: true
+  when: always
+
+test:lint:clippy:
+  stage: lint
+  image: "guangie88/rustfmt-clippy:stable"
+  script:
+    - cargo --version
+    - rustc --version
+    - cargo clippy -- -D warnings
+  tags:
+    - linux
+  allow_failure: true
+  needs: ["test:lint:rustfmt"]
+
+test:test:linux:
+  stage: test
+  image: "guangie88/rustfmt-clippy:stable"
+  script:
+    - cargo --version
+    - rustc --version
+    - cargo install cargo-junit
+    - cargo junit --name linux.xml
+  tags:
+    - linux
+  needs: ["test:lint:rustfmt"]
+  artifacts:
+    paths:
+      - linux.xml
+    reports:
+      junit: linux.xml
+
+build:build:linux:
+  stage: build
+  image: "guangie88/rustfmt-clippy:stable"
+  script:
+    - cargo build --release
+  artifacts:
+    paths:
+      - target/release/
+  tags:
+    - linux
+  needs: ["test:test:linux"]
+  only:
+    - master
+    - tags      
+
+pages:
+  stage: doc
+  image: "guangie88/rustfmt-clippy:stable"
+  script:
+    - cargo doc --no-deps --document-private-items
+    - mv target/doc public
+    - echo '<meta http-equiv="refresh" content="0; url=hole_punch">' > public/index.html
+  artifacts:
+    paths:
+      - public
+      - target
+  needs: ["test:lint:rustfmt"]
+  tags:
+    - linux
+  when: always
