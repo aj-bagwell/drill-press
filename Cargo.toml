@@ -1,12 +1,12 @@
 [package]
-name = "hole-punch"
-description = "A WIP cross platform library for extracting information about holes in sparse files."
-documentation = "https://docs.rs/hole-punch/"
-repository = "https://gitlab.com/asuran-rs/hole-punch"
+name = "drill-press"
+description = "A cross platform library for listing and manipulating holes in sparse files."
+documentation = "https://docs.rs/drill-press/"
+repository = "https://github.com/aj-bagwell/drill-press"
 license = "MIT OR Apache-2.0"
-version = "0.0.4-alpha.0"
-authors = ["Nathan McCarty <nathan@mccarty.io>"]
 edition = "2018"
+version = "0.1.0"
+authors = ["Nathan McCarty <nathan@mccarty.io>", "AJ Bagwell <aj.bagwell@gmail.com>"]
 readme = "README.md"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
