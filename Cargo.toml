@@ -4,9 +4,9 @@ description = "A cross platform library for listing and manipulating holes in sp
 documentation = "https://docs.rs/drill-press/"
 repository = "https://github.com/aj-bagwell/drill-press"
 license = "MIT OR Apache-2.0"
-edition = "2018"
 version = "0.1.0"
 authors = ["Nathan McCarty <nathan@mccarty.io>", "AJ Bagwell <aj.bagwell@gmail.com>"]
+edition = "2021"
 readme = "README.md"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
@@ -24,7 +24,7 @@ errno = "0.2.4"
 winapi = {version = "0.3.8", features = ["ioapiset", "winioctl"]}
 
 [dev-dependencies]
-quickcheck = "0.9.2"
-quickcheck_macros = "0.9.1"
+quickcheck = "1.0.3"
+quickcheck_macros = "1.0.0"
 rand = "0.7.3"
-tempfile = "3.1.0"
+tempfile = "3.3.0"

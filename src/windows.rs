@@ -38,8 +38,7 @@ impl SparseFile for File {
                 .iter()
                 .map(|x| Segment {
                     segment_type: SegmentType::Data,
-                    start: x.start,
-                    end: x.end,
+                    range: x.start..x.end,
                 })
                 .collect::<Vec<_>>();
             // We need to fill in the sparse segments
@@ -49,43 +48,35 @@ impl SparseFile for File {
             if ranges[0].start > 0 {
                 segments.push(Segment {
                     segment_type: SegmentType::Hole,
-                    start: 0,
-                    end: ranges[0].start - 1,
+                    range: 0..ranges[0].start,
                 });
             }
             // Fill in the gaps
             for (before, after) in ranges.iter().zip(ranges.iter().skip(1)) {
-                // Make sure there is a gap before proceeding, the documentation
-                // for winapi is utter crap, and I can't tell if this is
-                // actually something we need to do.
-                if before.end + 1 < after.start {
-                    segments.push(Segment {
-                        segment_type: SegmentType::Hole,
-                        start: before.end + 1,
-                        end: after.start - 1,
-                    });
-                }
+                segments.push(Segment {
+                    segment_type: SegmentType::Hole,
+                    range: before.end..after.start,
+                });
             }
 
             // Check to see if we need to add a hole segment at the end
-            if ranges[ranges.len() - 1].end < len {
+            let ranges_end = ranges.last().unwrap().end;
+            if ranges_end < len {
                 segments.push(Segment {
                     segment_type: SegmentType::Hole,
-                    start: ranges[ranges.len() - 1].end + 1,
-                    end: len,
+                    range: ranges_end..len,
                 });
             }
 
             // Sort the segments vec, since we really have just been adding
             // segments willy-nilly
-            segments.sort_by_key(|x| x.start);
+            segments.sort_by_key(Segment::start);
 
             Ok(segments)
         } else {
             Ok(vec![Segment {
                 segment_type: SegmentType::Data,
-                start: 0,
-                end: len,
+                range: 0..len,
             }])
         }
     }
