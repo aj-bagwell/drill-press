@@ -5,8 +5,13 @@ use tempfile::NamedTempFile;
 
 use quickcheck::{Arbitrary, Gen};
 
-const BLOCK_SIZE: u64 = 4 * 1024;
 const MAX_SPLITS: usize = 50;
+
+// minum hole size varies by file system
+#[cfg(unix)]
+const BLOCK_SIZE: u64 = 4 * 1024;
+#[cfg(windows)]
+const BLOCK_SIZE: u64 = 64 * 1024;
 
 #[derive(Clone, Debug)]
 pub struct SparseDescription {
