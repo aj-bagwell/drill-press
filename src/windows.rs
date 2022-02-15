@@ -5,18 +5,12 @@ use std::io::{Seek, SeekFrom};
 use std::os::windows::io::{AsRawHandle, RawHandle};
 
 use winapi::shared::minwindef::{DWORD, LPVOID};
-use winapi::shared::ntdef::LARGE_INTEGER;
 use winapi::um::fileapi::{GetFileInformationByHandle, BY_HANDLE_FILE_INFORMATION};
 use winapi::um::ioapiset::DeviceIoControl;
 use winapi::um::winioctl::FSCTL_QUERY_ALLOCATED_RANGES;
 use winapi::um::winnt::FILE_ATTRIBUTE_SPARSE_FILE;
 
 use std::mem::MaybeUninit;
-
-struct Range {
-    start: u64,
-    end: u64,
-}
 
 impl SparseFile for File {
     fn scan_chunks(&mut self) -> std::result::Result<std::vec::Vec<Segment>, ScanError> {
@@ -37,17 +31,18 @@ impl SparseFile for File {
             let mut segments = Vec::with_capacity(ranges.len() * 2 + 1);
 
             for range in ranges {
-                if prev_end != range.start {
+                let end = range.offset + range.length;
+                if prev_end != range.offset {
                     segments.push(Segment {
                         segment_type: SegmentType::Hole,
-                        range: prev_end..range.start,
+                        range: prev_end..range.offset,
                     });
                 }
                 segments.push(Segment {
                     segment_type: SegmentType::Data,
-                    range: range.start..range.end,
+                    range: range.offset..end,
                 });
-                prev_end = range.end;
+                prev_end = end;
             }
 
             // Check to see if we need to add a hole segment at the end
@@ -68,68 +63,49 @@ impl SparseFile for File {
     }
 }
 
+// Define some types
+#[repr(C)]
+#[derive(Clone, Copy)]
+struct FileAllocatedRange {
+    offset: u64,
+    length: u64,
+}
+
 /// Get the portions of a file that contain data
-fn get_allocated_ranges(handle: RawHandle, size: u64) -> Result<Vec<Range>, ScanError> {
-    // Define some types
-    #[repr(C)]
-    #[derive(Clone, Copy)]
-    struct FileAllocatedRange {
-        offset: LARGE_INTEGER,
-        length: LARGE_INTEGER,
-    }
+fn get_allocated_ranges(
+    handle: RawHandle,
+    size: u64,
+) -> Result<Vec<FileAllocatedRange>, ScanError> {
     const LEN: usize = 1024;
-    type FileAllocatedRangeBuffer = [MaybeUninit<FileAllocatedRange>; LEN];
-    // Get the range to query
-    // These are just integers under the hood, so we can use zeroed 'uninitialized' memory safely
-    let mut offset: LARGE_INTEGER = unsafe { MaybeUninit::zeroed().assume_init() };
-    let mut length: LARGE_INTEGER = unsafe { MaybeUninit::zeroed().assume_init() };
-    // set offset to start of file for query range
-    unsafe { *offset.QuadPart_mut() = 0 };
-    // set length to provided length of file
-    unsafe { *length.QuadPart_mut() = size as i64 };
 
-    let mut query_range_buffer = FileAllocatedRange { offset, length };
+    let mut query_range_buffer = FileAllocatedRange {
+        offset: 0,
+        length: size,
+    };
 
-    let mut buffer: FileAllocatedRangeBuffer = unsafe { MaybeUninit::uninit().assume_init() };
+    let mut ranges = Vec::with_capacity(LEN);
     let mut returned_bytes: DWORD = 0;
 
-    let ret = unsafe {
-        DeviceIoControl(
+    unsafe {
+        let ret = DeviceIoControl(
             handle,
             FSCTL_QUERY_ALLOCATED_RANGES,
             &mut query_range_buffer as *mut _ as LPVOID,
             std::mem::size_of::<FileAllocatedRange>() as DWORD,
-            &mut buffer as *mut _ as LPVOID,
-            std::mem::size_of::<FileAllocatedRangeBuffer>() as DWORD,
+            ranges.as_mut_ptr() as LPVOID,
+            (ranges.capacity() * std::mem::size_of::<FileAllocatedRange>()) as DWORD,
             &mut returned_bytes,
             std::ptr::null_mut(),
-        )
+        );
+        // Check the returned value
+        // FIXME: WIll error if the user provides a massive file with too many ranges
+        // Really need to check for MORE_DATA and do a loop
+        if ret == 0 {
+            return Err(std::io::Error::last_os_error().into());
+        }
+        ranges.set_len(returned_bytes as usize / std::mem::size_of::<FileAllocatedRange>());
     };
 
-    // Check the returned value
-    // FIXME: WIll error if the user provides a massive file with too many ranges
-    // Really need to check for MORE_DATA and do a loop
-    if ret == 0 {
-        return Err(std::io::Error::last_os_error().into());
-    }
-
-    // Find out how many ranges we have
-    let range_count: usize = returned_bytes as usize / std::mem::size_of::<FileAllocatedRange>();
-
-    // Create a place to put our ranges
-    let mut ranges: Vec<Range> = Vec::new();
-
-    // Iterate through the buffer and extract ranges
-    // This gets kinda hard to mentall parse if we do it the 'correct way'
-    // So we squelch that clippy warning here and here only
-    #[allow(clippy::needless_range_loop)]
-    for i in 0..range_count {
-        // Since we are only iterating up to the point DeviceIoControl returned, this unwrap is safe
-        let range: FileAllocatedRange = unsafe { buffer[i].assume_init() };
-        let start = unsafe { *range.offset.QuadPart() } as u64;
-        let end = unsafe { *range.length.QuadPart() } as u64 + start;
-        ranges.push(Range { start, end });
-    }
     Ok(ranges)
 }
 
