@@ -21,6 +21,7 @@ cfg_if::cfg_if! {
 mod test_utils;
 
 #[derive(Error, Debug)]
+/// Errors returned by [`scan_chunks`](SparseFile::scan_chunks)
 pub enum ScanError {
     #[error("IO Error occurred")]
     IO(#[from] std::io::Error),
@@ -54,9 +55,11 @@ impl SegmentType {
 pub struct Segment {
     /// Marks this segment as either containing a hole, or containing data
     pub segment_type: SegmentType,
+    /// the (half-open) range of bytes in the file covered by this segment
     pub range: Range<u64>,
 }
 
+/// An iterator over the ranges of a file of a specific [`SegmentType`]
 pub struct SegmentIter<'a> {
     segment_type: SegmentType,
     iter: Iter<'a, Segment>,
@@ -74,7 +77,8 @@ impl<'a> Iterator for SegmentIter<'a> {
     }
 }
 
-trait Segments {
+/// An extention trait to filter segments by Hole or Data segments
+pub trait Segments {
     fn data(&self) -> SegmentIter;
     fn holes(&self) -> SegmentIter;
 }
@@ -112,7 +116,7 @@ impl Segment {
         self.segment_type == SegmentType::Data
     }
 
-    /// The starting pos of this segment
+    /// The starting position of this segment
     pub fn start(&self) -> u64 {
         self.range.start
     }
@@ -123,16 +127,13 @@ impl Segment {
     }
 }
 
-/// Trait for objects that can have sparsity
+/// An extention trait for [`File`](std::fs::File) for sparse files
 pub trait SparseFile: Read + Seek {
     /// Scans the file to find its logical chunks
     ///
     /// Will return a list of segments, ordered by their start position.
     ///
-    /// The ranges generated are guaranteed to cover all bytes in the file, up
-    /// to the last non-zero byte in the last segment containing data. All files
-    /// are considered to have a single hole of indeterminate length at the end,
-    /// and this library may not included that hole.
+    /// The ranges generated are guaranteed to cover all bytes in the file.
     ///
     /// `Hole` segments are guaranteed to represent a part of a file that does
     /// not contain any non-zero data, however, `Data` segments may represent
