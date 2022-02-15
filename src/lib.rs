@@ -7,6 +7,7 @@ cfg_if::cfg_if! {
     if #[cfg(any(target_os = "linux",
                  target_os = "android",
                  target_os = "freebsd",
+                 target_os = "macos",
     ))]{
         mod unix;
     } else if #[cfg(windows)] {

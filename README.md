@@ -15,6 +15,7 @@ The operating systems that currently support filesystem-level sparsity informati
 2.	Android
 3.	FreeBSD
 4.	Windows
+5.  MacOS
 
 These are currently implemented with a compile time switch, and `SparseFile::scan_chunks` will always immediately return with a `ScanError::UnsupportedPlatform` error on platforms not on this list.
 
@@ -28,7 +29,7 @@ use hole_punch::*;
 let mut file = File::open("a big sparse file");
 let segments = file.scan_chunks().expect("Unable to scan chunks");
 for segment in segments {
-    if let SegmentType::Data = segment.segment_type {
+    if SegmentType::Data == segment.segment_type {
         let start = segment.start();
         let length = segment.len();
         do_something_with_data(&mut file, start, length);

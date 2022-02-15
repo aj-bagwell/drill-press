@@ -7,7 +7,17 @@ use std::io::Error;
 use std::os::unix::io::AsRawFd;
 
 use errno::errno;
-use libc::{c_int, lseek, off_t, EINVAL, ENXIO, SEEK_DATA, SEEK_END, SEEK_HOLE};
+use libc::{c_int, lseek, off_t, EINVAL, ENXIO, SEEK_END};
+
+cfg_if::cfg_if! {
+    // libc module for macos is missing these, values stolen from _seek_set.h
+    if #[cfg(target_os = "macos")]{
+        const SEEK_HOLE: c_int  = 3;
+        const SEEK_DATA: c_int  = 4;
+    } else {
+        use libc::{SEEK_DATA, SEEK_HOLE};
+    }
+}
 
 impl SparseFile for File {
     fn scan_chunks(&mut self) -> std::result::Result<std::vec::Vec<Segment>, ScanError> {
