@@ -31,46 +31,32 @@ impl SparseFile for File {
         } else if is_sparse(handle)? {
             // Call through and get the allocated ranges
             let ranges = get_allocated_ranges(handle, len)?;
-            // the file isn't empty if we are here, so we should have at least one range
-            assert!(!ranges.is_empty());
             // Make a place to put our segments, and copy over our ranges
-            let mut segments = ranges
-                .iter()
-                .map(|x| Segment {
+
+            let mut prev_end = 0;
+            let mut segments = Vec::with_capacity(ranges.len() * 2 + 1);
+
+            for range in ranges {
+                if prev_end != range.start {
+                    segments.push(Segment {
+                        segment_type: SegmentType::Hole,
+                        range: prev_end..range.start,
+                    });
+                }
+                segments.push(Segment {
                     segment_type: SegmentType::Data,
-                    range: x.start..x.end,
-                })
-                .collect::<Vec<_>>();
-            // We need to fill in the sparse segments
-            // First, check if the first
-            // data segment starts at 0, otherwise we have to add a sparse
-            // segment
-            if ranges[0].start > 0 {
-                segments.push(Segment {
-                    segment_type: SegmentType::Hole,
-                    range: 0..ranges[0].start,
+                    range: range.start..range.end,
                 });
-            }
-            // Fill in the gaps
-            for (before, after) in ranges.iter().zip(ranges.iter().skip(1)) {
-                segments.push(Segment {
-                    segment_type: SegmentType::Hole,
-                    range: before.end..after.start,
-                });
+                prev_end = range.end;
             }
 
             // Check to see if we need to add a hole segment at the end
-            let ranges_end = ranges.last().unwrap().end;
-            if ranges_end < len {
+            if prev_end < len {
                 segments.push(Segment {
                     segment_type: SegmentType::Hole,
-                    range: ranges_end..len,
+                    range: prev_end..len,
                 });
             }
-
-            // Sort the segments vec, since we really have just been adding
-            // segments willy-nilly
-            segments.sort_by_key(Segment::start);
 
             Ok(segments)
         } else {
