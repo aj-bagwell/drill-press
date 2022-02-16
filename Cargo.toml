@@ -19,6 +19,7 @@ thiserror = "1.0.11"
 [target.'cfg(unix)'.dependencies]
 libc = "0.2.67"
 errno = "0.2.4"
+nix = "0.23"
 
 [target.'cfg(windows)'.dependencies]
 winapi = {version = "0.3.8", features = ["ioapiset", "winioctl", "fileapi"]}

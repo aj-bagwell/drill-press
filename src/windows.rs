@@ -7,7 +7,7 @@ use std::os::windows::io::{AsRawHandle, RawHandle};
 use winapi::shared::minwindef::{DWORD, LPVOID};
 use winapi::um::fileapi::{GetFileInformationByHandle, BY_HANDLE_FILE_INFORMATION};
 use winapi::um::ioapiset::DeviceIoControl;
-use winapi::um::winioctl::FSCTL_QUERY_ALLOCATED_RANGES;
+use winapi::um::winioctl::{FSCTL_QUERY_ALLOCATED_RANGES, FSCTL_SET_ZERO_DATA};
 use winapi::um::winnt::FILE_ATTRIBUTE_SPARSE_FILE;
 
 use std::mem::MaybeUninit;
@@ -61,6 +61,30 @@ impl SparseFile for File {
             }])
         }
     }
+
+    fn drill_hole(&self, start: u64, end: u64) -> Result<(), ScanError> {
+        unsafe {
+            device_io_control(
+                self.as_raw_handle(),
+                FSCTL_SET_ZERO_DATA,
+                &FileZeroDataInformation {
+                    offset: start,
+                    beyond_final_zero: end,
+                },
+                std::ptr::null_mut() as *mut (),
+                0,
+            )?;
+        };
+        Ok(())
+    }
+}
+
+// Define some types
+#[repr(C)]
+#[derive(Clone, Copy)]
+struct FileZeroDataInformation {
+    offset: u64,
+    beyond_final_zero: u64,
 }
 
 // Define some types
@@ -76,37 +100,55 @@ fn get_allocated_ranges(
     handle: RawHandle,
     size: u64,
 ) -> Result<Vec<FileAllocatedRange>, ScanError> {
-    const LEN: usize = 1024;
-
-    let mut query_range_buffer = FileAllocatedRange {
-        offset: 0,
-        length: size,
-    };
-
-    let mut ranges = Vec::with_capacity(LEN);
-    let mut returned_bytes: DWORD = 0;
+    let mut ranges = Vec::with_capacity(1024);
 
     unsafe {
-        let ret = DeviceIoControl(
-            handle,
-            FSCTL_QUERY_ALLOCATED_RANGES,
-            &mut query_range_buffer as *mut _ as LPVOID,
-            std::mem::size_of::<FileAllocatedRange>() as DWORD,
-            ranges.as_mut_ptr() as LPVOID,
-            (ranges.capacity() * std::mem::size_of::<FileAllocatedRange>()) as DWORD,
-            &mut returned_bytes,
-            std::ptr::null_mut(),
-        );
         // Check the returned value
         // FIXME: WIll error if the user provides a massive file with too many ranges
         // Really need to check for MORE_DATA and do a loop
-        if ret == 0 {
-            return Err(std::io::Error::last_os_error().into());
-        }
-        ranges.set_len(returned_bytes as usize / std::mem::size_of::<FileAllocatedRange>());
+        let returned_bytes = device_io_control(
+            handle,
+            FSCTL_QUERY_ALLOCATED_RANGES,
+            &FileAllocatedRange {
+                offset: 0,
+                length: size,
+            },
+            ranges.as_mut_ptr(),
+            ranges.capacity() * std::mem::size_of::<FileAllocatedRange>(),
+        )?;
+
+        ranges.set_len(returned_bytes / std::mem::size_of::<FileAllocatedRange>());
     };
 
     Ok(ranges)
+}
+
+/// a wrapper round
+unsafe fn device_io_control<Q: Sized, R: Sized>(
+    handle: RawHandle,
+    control_code: DWORD,
+    query: &Q,
+    result: *mut R,
+    capacity: usize,
+) -> Result<usize, ScanError> {
+    let mut returned_bytes: DWORD = 0;
+
+    let ret = DeviceIoControl(
+        handle,
+        control_code,
+        query as *const _ as LPVOID,
+        std::mem::size_of::<Q>() as DWORD,
+        result as LPVOID,
+        capacity as DWORD,
+        &mut returned_bytes,
+        std::ptr::null_mut(),
+    );
+
+    if ret == 0 {
+        return Err(std::io::Error::last_os_error().into());
+    }
+
+    Ok(returned_bytes as usize)
 }
 
 /// Check if the file is sparse

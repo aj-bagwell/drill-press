@@ -156,6 +156,10 @@ pub trait SparseFile: Read + Seek {
     ///
     /// Will also return `Err` if any other I/O error occurs
     fn scan_chunks(&mut self) -> Result<Vec<Segment>, ScanError>;
+
+    /// Unallocate a section of the file, freeing the disk space and making
+    /// future reads return zeros
+    fn drill_hole(&self, start: u64, end: u64) -> Result<(), ScanError>;
 }
 
 #[cfg(test)]
@@ -163,6 +167,18 @@ mod tests {
     use super::*;
     use crate::test_utils::*;
     use quickcheck_macros::quickcheck;
+    use std::fs::File;
+
+    fn test_chunks_match(file: &mut File, input_segments: &[Segment]) -> bool {
+        // Get both sets of segments
+        let output_segments = file.scan_chunks().expect("Unable to scan chunks");
+
+        if *input_segments != output_segments {
+            println!("Expected: \n {:?} \n", input_segments);
+            println!("Got: \n {:?} \n", output_segments);
+        }
+        *input_segments == output_segments
+    }
 
     // Creates a file based on desc, then tests that the resulting output of
     // file.scan_chunks() matches the description used to create the file
@@ -170,16 +186,7 @@ mod tests {
         let mut file = desc.to_file();
         // Get both sets of segments
         let input_segments = desc.segments();
-        let output_segments = file
-            .as_file_mut()
-            .scan_chunks()
-            .expect("Unable to scan chunks");
-
-        if input_segments != output_segments {
-            println!("Input: \n {:?} \n", input_segments);
-            println!("Output: \n {:?} \n", output_segments);
-        }
-        input_segments == output_segments
+        test_chunks_match(file.as_file_mut(), &input_segments)
     }
 
     #[quickcheck]
@@ -188,9 +195,55 @@ mod tests {
     }
 
     #[quickcheck]
+    fn drill_hole(desc: SparseDescription, drop: u8) -> bool {
+        let mut file = desc.to_file();
+        // Get both sets of segments
+        let mut input_segments = desc.segments();
+
+        if input_segments.is_empty() {
+            return true;
+        }
+
+        #[cfg(target_os = "macos")]
+        for hole in input_segments.holes() {
+            file.as_file_mut()
+                .drill_hole(hole.start, hole.end)
+                .expect("pre drill holes");
+        }
+
+        test_chunks_match(file.as_file_mut(), &input_segments);
+
+        // pick a segment to make a hole
+        let drop_idx = drop as usize % input_segments.len();
+        let drop = &mut input_segments[drop_idx];
+
+        file.as_file_mut()
+            .drill_hole(drop.range.start, drop.range.end)
+            .expect("drilled hole");
+
+        drop.segment_type = SegmentType::Hole;
+
+        combine_segments(&mut input_segments);
+
+        test_chunks_match(file.as_file_mut(), &input_segments)
+    }
+    #[quickcheck]
     fn one_big_segment(segment_type: SegmentType) -> bool {
         let desc = SparseDescription::one_segment(segment_type, 3545868);
 
         test_round_trips(desc)
+    }
+
+    fn combine_segments(segments: &mut Vec<Segment>) {
+        let mut prev = 0;
+        for i in 1..segments.len() {
+            if segments[prev].segment_type == segments[i].segment_type {
+                segments[prev].range.end = segments[i].range.end;
+            } else {
+                prev += 1;
+                segments[prev] = segments[i].clone();
+            }
+        }
+        segments.truncate(prev + 1)
     }
 }

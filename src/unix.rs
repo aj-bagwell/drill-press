@@ -20,7 +20,7 @@ cfg_if::cfg_if! {
 }
 
 impl SparseFile for File {
-    fn scan_chunks(&mut self) -> std::result::Result<std::vec::Vec<Segment>, ScanError> {
+    fn scan_chunks(&mut self) -> Result<Vec<Segment>, ScanError> {
         // Create our output vec
         let mut tags: Vec<Segment> = Vec::new();
         // Extract the raw fd from the file
@@ -59,6 +59,66 @@ impl SparseFile for File {
             last_type = last_type.opposite();
         }
         Ok(tags)
+    }
+
+    #[cfg(any(target_os = "linux", target_os = "android", target_os = "freebsd",))]
+    fn drill_hole(&self, start: u64, end: u64) -> Result<(), ScanError> {
+        unsafe {
+            use libc::{fallocate, FALLOC_FL_KEEP_SIZE, FALLOC_FL_PUNCH_HOLE};
+            use std::io::Error;
+            use std::os::unix::io::AsRawFd;
+
+            if fallocate(
+                self.as_raw_fd(),
+                FALLOC_FL_PUNCH_HOLE | FALLOC_FL_KEEP_SIZE,
+                start as libc::off_t,
+                (end - start) as libc::off_t,
+            ) < 0
+            {
+                return Err(Error::last_os_error().into());
+            }
+        }
+        Ok(())
+    }
+
+    #[cfg(target_os = "macos")]
+    fn drill_hole(&self, start: u64, end: u64) -> Result<(), ScanError> {
+        use libc::fcntl;
+        use std::os::unix::io::AsRawFd;
+
+        #[repr(C)]
+        struct fpunchhole_t {
+            fp_flags: c_int, /* unused */
+            reserved: c_int, /* (to maintain 8-byte alignment) */
+            fp_offset: u64,  /* IN: start of the region */
+            fp_length: u64,  /* IN: size of the region */
+        }
+
+        // from fcntl.h
+        const F_PUNCHHOLE: c_int = 99;
+
+        println!(
+            "punching hole form {} to {} ({} bytes)",
+            start,
+            end,
+            (end - start)
+        );
+
+        let hole = fpunchhole_t {
+            fp_flags: 0,
+            reserved: 0,
+            fp_offset: start,
+            fp_length: (end - start),
+        };
+
+        // Try to punch the hole
+        unsafe {
+            let ret = fcntl(self.as_raw_fd(), F_PUNCHHOLE, &hole);
+            if ret < 0 {
+                return Err(Error::last_os_error().into());
+            }
+        }
+        Ok(())
     }
 }
 

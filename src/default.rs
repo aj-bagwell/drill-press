@@ -10,4 +10,8 @@ impl SparseFile for File {
     fn scan_chunks(&mut self) -> std::result::Result<std::vec::Vec<Segment>, ScanError> {
         Err(ScanError::UnsupportedPlatform)
     }
+
+    fn drill_hole(&self, start: u64, end: u64) -> Result<(), ScanError> {
+        Err(ScanError::UnsupportedPlatform)
+    }
 }
