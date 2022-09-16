@@ -134,7 +134,7 @@ unsafe fn device_io_control<Q: Sized, R: Sized>(
     let mut returned_bytes: DWORD = 0;
 
     let ret = DeviceIoControl(
-        handle,
+        handle as _,
         control_code,
         query as *const _ as LPVOID,
         std::mem::size_of::<Q>() as DWORD,
@@ -158,7 +158,7 @@ fn is_sparse(handle: RawHandle) -> Result<bool, ScanError> {
     // Create a space for the file_info to go
     let mut file_info: MaybeUninit<BY_HANDLE_FILE_INFORMATION> = MaybeUninit::zeroed();
     // Make the call
-    let ret = unsafe { GetFileInformationByHandle(handle, file_info.as_mut_ptr()) };
+    let ret = unsafe { GetFileInformationByHandle(handle as _, file_info.as_mut_ptr()) };
     // Check for an error and indicate if there was one
     if ret == 0 {
         return Err(std::io::Error::last_os_error().into());
