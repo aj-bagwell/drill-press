@@ -97,13 +97,6 @@ impl SparseFile for File {
         // from fcntl.h
         const F_PUNCHHOLE: c_int = 99;
 
-        println!(
-            "punching hole form {} to {} ({} bytes)",
-            start,
-            end,
-            (end - start)
-        );
-
         let hole = fpunchhole_t {
             fp_flags: 0,
             reserved: 0,

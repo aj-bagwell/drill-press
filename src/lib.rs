@@ -60,6 +60,7 @@ pub struct Segment {
 }
 
 /// An iterator over the ranges of a file of a specific [`SegmentType`]
+#[derive(Debug, Clone)]
 pub struct SegmentIter<'a> {
     segment_type: SegmentType,
     iter: Iter<'a, Segment>,
