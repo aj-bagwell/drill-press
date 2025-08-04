@@ -1,4 +1,4 @@
-Hole-Punch
+Drill-Press
 ==========
 
 ![Crates.io](https://img.shields.io/crates/v/drill-press?style=flat-square&logo=rust) ![License](https://img.shields.io/crates/l/drill-press?style=flat-square) ![Unsafe](https://img.shields.io/badge/unsafe-very%20yes-important?style=flat-square) ![Maintenance](https://img.shields.io/maintenance/yes/2022?style=flat-square)
@@ -24,7 +24,7 @@ Usage
 
 ```rust
 use std::fs::File;
-use hole_punch::*;
+use drill_press::*;
 
 let mut file = File::open("a big sparse file");
 let segments = file.scan_chunks().expect("Unable to scan chunks");
@@ -40,5 +40,5 @@ for segment in segments {
 License
 -------
 
-Hole-Punch is distributed under your choice of the MIT license, or Apache 2.0.
+Drill-Press is distributed under your choice of the MIT license, or Apache 2.0.
 
