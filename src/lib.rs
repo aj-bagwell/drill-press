@@ -187,6 +187,7 @@ mod tests {
         let mut file = desc.to_file();
         // Get both sets of segments
         let input_segments = desc.segments();
+        println!("Found {} segments of {} bytes", input_segments.len(), input_segments.clone().into_iter().map(|x| x.len()).sum::<u64>());
         test_chunks_match(file.as_file_mut(), &input_segments)
     }
 
@@ -228,6 +229,7 @@ mod tests {
 
         test_chunks_match(file.as_file_mut(), &input_segments)
     }
+
     #[quickcheck]
     fn one_big_segment(segment_type: SegmentType) -> bool {
         let desc = SparseDescription::one_segment(segment_type, 3545868);
