@@ -124,7 +124,7 @@ impl Segment {
 
     /// The number of bytes in this segment
     pub fn len(&self) -> u64 {
-        self.range.start - self.range.end
+        self.range.end - self.range.start
     }
 }
 
