@@ -172,6 +172,14 @@ mod tests {
         // Get both sets of segments
         let output_segments = file.scan_chunks().expect("Unable to scan chunks");
 
+        let segments_total = output_segments.iter().map(|x| x.len()).sum::<u64>();
+
+        let file_len = file.metadata().expect("file to exists").len();
+
+        if segments_total != file_len {
+            println!("Segment length {} != file len {}", segments_total, file_len);
+        }
+
         if *input_segments != output_segments {
             println!("Expected: \n {:?} \n", input_segments);
             println!("Got: \n {:?} \n", output_segments);
@@ -185,11 +193,6 @@ mod tests {
         let mut file = desc.to_file();
         // Get both sets of segments
         let input_segments = desc.segments();
-        println!(
-            "Found {} segments of {} bytes",
-            input_segments.len(),
-            input_segments.iter().map(|x| x.len()).sum::<u64>()
-        );
         test_chunks_match(file.as_file_mut(), &input_segments)
     }
 
