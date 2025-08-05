@@ -71,7 +71,7 @@ impl SparseFile for File {
                     offset: start,
                     beyond_final_zero: end,
                 },
-                std::ptr::null_mut() as *mut (),
+                std::ptr::null_mut::<()>(),
                 0,
             )?;
         };
