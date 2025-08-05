@@ -25,8 +25,6 @@ mod test_utils;
 pub enum ScanError {
     #[error("IO Error occurred")]
     IO(#[from] std::io::Error),
-    #[error("An unknown error occurred interacting with the C API")]
-    Raw(i32),
     #[error("The operation you are trying to perform is not supported on this platform")]
     UnsupportedPlatform,
     #[error("The filesystem does not support operating on sparse files")]
