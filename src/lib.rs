@@ -1,3 +1,10 @@
+#![forbid(missing_docs)]
+#![warn(clippy::all)]
+#![deny(warnings)]
+#![deny(clippy::print_stdout)]
+#![cfg_attr(docsrs, feature(doc_cfg))]
+#![doc = include_str!("../README.md")]
+
 use std::io::{Read, Seek};
 use std::ops::Range;
 use std::slice::Iter;
@@ -23,10 +30,13 @@ mod test_utils;
 #[derive(Error, Debug)]
 /// Errors returned by [`scan_chunks`](SparseFile::scan_chunks)
 pub enum ScanError {
+    /// the syscall for scanning allocated chunks of file failed with IO error
     #[error("IO Error occurred")]
     IO(#[from] std::io::Error),
+    /// This will be returned if you compile for a target that this crate does not support
     #[error("The operation you are trying to perform is not supported on this platform")]
     UnsupportedPlatform,
+    /// If the OS reports that the file system the file is on does not support sparse files
     #[error("The filesystem does not support operating on sparse files")]
     UnsupportedFileSystem,
 }
@@ -34,11 +44,19 @@ pub enum ScanError {
 /// Flag for determining if a segment is a hole, or if it contains data
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum SegmentType {
+    /// A Hole segment is a sequence of zeros in a sparse file that does not take up space on disk
     Hole,
+    /// A Data segment may or may not be zero but does take up space on the disk
     Data,
 }
 
 impl SegmentType {
+    /// The opposite segement type
+    /// ```
+    /// # use drill_press::SegmentType;
+    /// let data = SegmentType::Data;
+    /// assert_eq!(data.opposite(), SegmentType::Hole);
+    /// ```
     pub fn opposite(&self) -> Self {
         match self {
             SegmentType::Hole => SegmentType::Data,
@@ -78,7 +96,9 @@ impl<'a> Iterator for SegmentIter<'a> {
 
 /// An extention trait to filter segments by Hole or Data segments
 pub trait Segments {
+    /// An interator of only the data segments
     fn data(&self) -> SegmentIter;
+    /// An iterator of only the hole segments
     fn holes(&self) -> SegmentIter;
 }
 
